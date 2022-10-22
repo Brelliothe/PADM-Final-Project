@@ -1,20 +1,18 @@
 (define (problem move) (:domain kitchen)
-(:objects sugar_box spam_box - object 
-          burner countertop drawer_red - furniture
+(:objects 
+    sugar spam - objective
+    burner countertop drawer center - furniture
 )
 
 (:init
-    (on sugar_box burner)
-    ;todo: put the initial state's facts and numeric values here
+    (on sugar burner)
+    (on spam burner)
+    (near center)
 )
 
 (:goal (and
-    (not (on sugar_box burner))
-    (on sugar_box countertop)
-    (inside spam_box drawer_red)
-    ;todo: put the goal condition here
+    (not (on sugar burner))
+    (on sugar countertop)
+    (inside spam drawer)
 ))
-
-;un-comment the following line if metric is needed
-;(:metric minimize (???))
 )

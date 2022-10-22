@@ -1,0 +1,1 @@
+python planner.py kitchen.pddl task.pddl
