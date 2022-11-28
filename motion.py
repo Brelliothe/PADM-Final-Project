@@ -72,14 +72,17 @@ class MotionPlanner:
         self.sugar_box = add_sugar_box(world, idx=0, counter=1, pose2d=(-0.2, 0.65, np.pi / 4))
         self.spam_box = add_spam_box(world, idx=1, counter=0, pose2d=(0.2, 1.1, np.pi / 4))
         self.world._update_initial()
-        self.base_sample = sample_reachable_base  # get_sample_fn(world.robot, world.base_joints)
+        self.base_sample = get_sample_fn(world.robot, world.base_joints)
         self.arm_sample = get_sample_fn(world.robot, world.arm_joints)
         self.plan = plan
         self.tasks = []
         self.poses = {} # TODO: add poses to this dict
         self.item_on_hand = []
         self.radius = 1
-        base_lower_limits, base_upper_limits = get_custom_limits(world.robot, world.base_)
+        base_lower_limits, base_upper_limits = get_custom_limits(world.robot, world.base_joints, {}, circular_limits=CIRCULAR_LIMITS)
+        arm_lower_limits, arm_upper_limits = get_custom_limits(world.robot, world.arm_joints, {}, circular_limits=CIRCULAR_LIMITS)
+        self.bounds = (base_lower_limits, base_upper_limits, arm_lower_limits, arm_upper_limits)
+        
     
     def sample(self):
         base_joints = self.base_sample()
@@ -112,14 +115,11 @@ class MotionPlanner:
     def collision_free(self, parent, des, world, radius):
         return True
     
-    def arrive(end_region, pose):
-        pass
-    
-    def render(self, tree, path, world, bounds, radius, start_pose, end_region):
+    def arrive(end_region, conf):
         pass
     
     def rrt(self, bounds, world, start_pose, radius, end_region):
-        tree = [Node(start_pose[0], start_pose[1])]
+        tree = [Node(start_pose[0], start_pose[1])] # TODO: change it to configuration
         while (True):
             leaf = self.sample()
             parent = self.nearest(leaf, tree)
