@@ -8,7 +8,8 @@ import numpy as np
 sys.path.extend(os.path.abspath(os.path.join(os.getcwd(), d)) for d in ['pddlstream', 'ss-pybullet'])
 from src.world import World
 from pybullet_tools.utils import CIRCULAR_LIMITS, get_custom_limits, set_pose, Pose, Point, Euler
-from src.utils import name_from_type, compute_surface_aabb
+from src.utils import name_from_type, compute_surface_aabb, sample_reachable_base
+import operator
 
 UNIT_POSE2D = (0., 0., 0.)
 
@@ -39,10 +40,15 @@ def get_sample_fn(body, joints, custom_limits={}, **kwargs):
 
 
 class Configuration:
-    def __init__(self, base_joints, arm_joints):
+    def __init__(self, base_joints, arm_joints, parent=None):
         self.base_joints = base_joints
         self.arm_joints = arm_joints
-
+        self.parent = parent
+    
+    def distance(self, conf):
+        base_diff = tuple(map(operator.sub, self.base_joints, conf.base_joints))
+        arm_diff = tuple(map(operator.sub, self.arm_joints, conf.arm_joints))
+        return sum([abs(x) for x in base_diff + arm_diff])
 
 class MotionPlanner:
     def __init__(self, plan):
@@ -54,21 +60,38 @@ class MotionPlanner:
         self.sugar_box = add_sugar_box(world, idx=0, counter=1, pose2d=(-0.2, 0.65, np.pi / 4))
         self.spam_box = add_spam_box(world, idx=1, counter=0, pose2d=(0.2, 1.1, np.pi / 4))
         self.world._update_initial()
-        self.base_sample = get_sample_fn(world.robot, world.base_joints)
+        self.base_sample = sample_reachable_base  # get_sample_fn(world.robot, world.base_joints)
         self.arm_sample = get_sample_fn(world.robot, world.arm_joints)
         self.plan = plan
         self.tasks = []
         self.poses = {} # TODO: add poses to this dict
         self.item_on_hand = []
+        self.radius = 1
+        base_lower_limits, base_upper_limits = get_custom_limits(world.robot, world.base_)
     
     def sample(self):
-        return Configuration(self.base_sample(), self.arm_sample())
+        base_joints = self.base_sample()
+        arm_joints = self.arm_sample()
+        return Configuration(base_joints, arm_joints)
     
     def nearest(self, leaf, tree):
-        pass
+        near = tree[0]
+        dis = leaf.distance(near)
+        for node in tree:
+            if leaf.distance(node) < dis:
+                near = node
+                dis = leaf.distance(near)
+        return near
     
     def steer(self, parent, leaf, radius, bounds):
-        pass
+        # TODO: convert to feasible code
+        base_joints_diff = tuple(map(operator.sub, leaf.base_joints, parent.base_joints))
+        arm_joints_diff = tuple(map(operator.sub, leaf.arm_joints, parent.arm_joints))
+        base_movement = tuple([j * radius for j in base_joints_diff])
+        arm_movement = tuple([j * radius for j in arm_joints_diff])
+        conf = Configuration(tuple(map(operator.add, parent.base_joints, base_joints_diff)), 
+                             tuple(map(operator.add, parent.arm_joints,arm_joints_diff)), parent=parent)
+        return conf if conf in bounds else leaf
     
     def collision_free(self, parent, des, world, radius):
         return True
@@ -102,4 +125,19 @@ class MotionPlanner:
     def plan(self):
         for act in self.plan:
             if act.name == 'navigate':
-                
+                path = self.rrt(self.bounds, self.world, self.poses[act.parameters[0]], self.radius, self.poses[act.parameters[1]])
+                raise NotImplementedError
+            elif act.name == 'pick':
+                path = self.rrt(self.bounds, self.world, self.poses[act.parameters[1]], self.radius, self.poses[act.parameters[0]])
+                self.item_on_hand.append(act.parameters[0])
+                raise NotImplementedError
+            elif act.name == 'place':
+                path = self.rrt(self.bounds, self.world, self.poses[act.parameters[0]], self.radius, self.poses[act.parameters[1]])
+                self.item_on_hand.remove(act.parameters[0])
+                raise NotImplementedError
+            elif act.name == 'stow': 
+                path = self.rrt(self.bounds, self.world, self.poses[act.parameters[0]], self.radius, self.poses[act.parameters[1]])
+                self.item_on_hand.remove(act.parameters[0])
+                raise NotImplementedError
+            else:
+                raise NotImplementedError
