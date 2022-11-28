@@ -2,6 +2,7 @@
 (:objects 
     sugar spam - objective
     burner countertop drawer center - furniture
+    arm - hand
 )
 
 (:init
