@@ -49,6 +49,18 @@ class Configuration:
         base_diff = tuple(map(operator.sub, self.base_joints, conf.base_joints))
         arm_diff = tuple(map(operator.sub, self.arm_joints, conf.arm_joints))
         return sum([abs(x) for x in base_diff + arm_diff])
+    
+    def inbounds(self, bounds):
+        """ 
+        The bounds should be a tuple of 4 elements (base_lower, base_upper, arm_lower, arm_upper)
+        Each element is also a tuple
+        """
+        comparison = [i > j for i, j in zip(self.base_joints, bounds[0])] + [i < j for i, j in zip(self.base_joints, bounds[1])]
+                    + [i > j for i, j in zip(self.arm_joints, bounds[2])] + [i < j for i, j in zip(self.arm_joints, bounds[3])]
+        for consistent in comparison:
+            if not consistent:
+                return False
+        return True
 
 class MotionPlanner:
     def __init__(self, plan):
@@ -91,7 +103,11 @@ class MotionPlanner:
         arm_movement = tuple([j * radius for j in arm_joints_diff])
         conf = Configuration(tuple(map(operator.add, parent.base_joints, base_joints_diff)), 
                              tuple(map(operator.add, parent.arm_joints,arm_joints_diff)), parent=parent)
-        return conf if conf in bounds else leaf
+        if conf.inbounds(bounds):
+            return conf
+        else:
+            leaf.parent = parent
+            return leaf
     
     def collision_free(self, parent, des, world, radius):
         return True
