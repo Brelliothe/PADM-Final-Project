@@ -17,7 +17,7 @@
 (:predicates 
     (near ?r)  ; whether the arm is close to an objective or furniture
     (grasp ?r - objective) ; whether the arm grasp the objective
-    (full ?r - objective) ; whether the hand is holding something
+    (full ?r - hand) ; whether the hand is holding something
     (on ?obj - objective ?furn - furniture) ; whether the objective is on the furniture
     (inside ?obj - objective ?furn - furniture) 
 )
