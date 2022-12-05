@@ -42,7 +42,7 @@
 )
 
 (:action stow
-    :parameters (?obj - objective ?fur - furniture ?hand - objective)
+    :parameters (?obj - objective ?fur - furniture ?h - hand)
     :precondition (and (grasp ?obj) (near ?fur))
     :effect (and (not (grasp ?obj)) (inside ?obj ?fur) (not (full ?h)))
 )
