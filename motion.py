@@ -104,8 +104,9 @@ class Configuration:
         The bounds should be a tuple of 4 elements (base_lower, base_upper, arm_lower, arm_upper)
         Each element is also a tuple
         """
-        comparison = [i > j for i, j in zip(self.base_joints, bounds[0])] + [i < j for i, j in zip(self.base_joints, bounds[1])]\
-                    + [i > j for i, j in zip(self.arm_joints, bounds[2])] + [i < j for i, j in zip(self.arm_joints, bounds[3])]
+        # comparison = [i > j for i, j in zip(self.base_joints, bounds[0])] + [i < j for i, j in zip(self.base_joints, bounds[1])]\
+                    # + [i > j for i, j in zip(self.arm_joints, bounds[2])] + [i < j for i, j in zip(self.arm_joints, bounds[3])]
+        comparison = [i > j for i, j in zip(self.arm_joints, bounds[2])] + [i < j for i, j in zip(self.arm_joints, bounds[3])]
         for consistent in comparison:
             if not consistent:
                 return False
@@ -182,13 +183,16 @@ class MotionPlanner:
         base_joints_diff = tuple(map(operator.sub, leaf.base_joints, parent.base_joints))
         arm_joints_diff = tuple(map(operator.sub, leaf.arm_joints, parent.arm_joints))
         base_movement = tuple([j * radius for j in base_joints_diff])
-        arm_movement = tuple([j * radius for j in arm_joints_diff])
-        conf = Configuration(tuple(map(operator.add, parent.base_joints, base_joints_diff)), 
-                             tuple(map(operator.add, parent.arm_joints,arm_joints_diff)), parent=parent)
+        efficient = radius / sum(abs(x) for x in list(arm_joints_diff))
+        arm_movement = tuple([j * efficient for j in arm_joints_diff])
+        conf = Configuration(tuple(map(operator.add, parent.base_joints, base_movement)), 
+                             tuple(map(operator.add, parent.arm_joints, arm_movement)), parent=parent)
+        # print(conf.arm_joints)
         if conf.inbounds(bounds):
             return conf
         else:
             leaf.parent = parent
+            # print(bounds)
             return leaf
     
     def collision_free(self, parent, des, world, radius):
@@ -536,3 +540,27 @@ class MotionPlanner:
             if drawer_motion is not None:
                 set_joint_position(self.world.kitchen, get_joint(self.world.kitchen, 'indigo_drawer_top_joint'), drawer_motion)
             wait_for_duration(0.05)
+            
+    def run_trajectory(self, plan):
+        joint = get_joint_positions(self.world.robot, self.world.base_joints)
+        set_joint_positions(self.world.robot, self.world.base_joints, (joint[0]-0.5, joint[1]+0.5, joint[2]))
+        wait_for_duration(1)
+        for conf in plan:
+            print(len(conf))
+            set_joint_positions(self.world.robot, self.world.arm_joints, conf)
+            wait_for_duration(0.2)
+            
+    def generate_trajectory(self):
+        start_joints = Configuration(get_joint_positions(self.world.robot, self.world.base_joints), get_joint_positions(self.world.robot, self.world.arm_joints))
+        start_pose = get_link_pose(self.world.robot, self.tool_link)
+        end_pose = ((start_pose[0][0] + 0.6, start_pose[0][1], start_pose[0][2]), start_pose[1])
+        end_region = Region(end_pose[0])
+        path = self.rrt(self.bounds, self.world, start_joints, self.radius, end_region)
+        print(len(path))
+        confs = [conf.arm_joints for conf in path]
+        for conf in confs:
+            print(conf)
+        for conf in confs:
+            set_joint_positions(self.world.robot, self.ik_joints, conf)
+            print(get_link_pose(self.world.robot, self.tool_link)[0])
+        np.save('trajectory_rrt', confs)
