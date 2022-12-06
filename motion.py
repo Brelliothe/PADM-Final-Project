@@ -5,6 +5,7 @@ import os
 import sys
 import argparse
 import numpy as np
+import json
 
 sys.path.extend(os.path.abspath(os.path.join(os.getcwd(), d)) for d in ['pddlstream', 'ss-pybullet'])
 
@@ -124,12 +125,12 @@ class Region:
         return True
 
 class MotionPlanner:
-    def __init__(self, plan):
+    def __init__(self, plan, use_gui=True):
         """
         input plan from activity planner
         convert it to world configuration
         """
-        self.world = World(use_gui=True)
+        self.world = World(use_gui=use_gui)
         self.sugar_box, sugar_box_pose = add_sugar_box(self.world, idx=0, counter=1, pose2d=(0.05, 0.65, np.pi / 4))
         self.spam_box, spam_box_pose = add_spam_box(self.world, idx=1, counter=0, pose2d=(0.2, 1.1, np.pi / 4))
         self.world._update_initial()
@@ -238,7 +239,7 @@ class MotionPlanner:
             # break
     
     def motion_plan(self):
-        plan = []
+        plan = {'base':[], 'arm':[], 'sugar':[], 'spam':[], 'drawer':[]}
         tool_link = link_from_name(self.world.robot, 'panda_hand')
         ik_joints = get_ik_joints(self.world.robot, PANDA_INFO, tool_link)
         for act in self.plan:
@@ -251,11 +252,17 @@ class MotionPlanner:
                     wait_for_duration(0.01)
                     set_joint_positions(self.world.robot, self.world.base_joints, joint)
                     pose = get_link_pose(self.world.robot, self.tool_link)
+                    plan['base'].append(joint)
+                    plan['arm'].append(None)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                     for item in self.item_on_hand:
                         body = 4 if item == 'sugar' else 5
                         set_pose(body, pose)
                         self.poses[item] = pose
-                plan += joints
+                        plan[item][-1] = pose
+                # plan += joints
                 # set_joint_positions(self.world.robot, self.world.base_joints, plan[-1])
                 # end_region = Region(self.poses[act.parameters[1]])
                 # path = self.rrt(self.bounds, self.world, Configuration(self.base_joints, self.arm_joints), self.radius, end_region)
@@ -270,6 +277,11 @@ class MotionPlanner:
                 for joint in joints:
                     wait_for_duration(0.01)
                     set_joint_positions(self.world.robot, self.world.base_joints, joint)
+                    plan['base'].append(joint)
+                    plan['arm'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
+                    plan['drawer'].append(None)
                 # end_pose = (self.poses[act.parameters[0]][0], get_link_pose(self.world.robot, self.tool_link)[1])
                 # print(end_pose)
                 # print(get_link_pose(self.world.robot, self.tool_link))
@@ -279,16 +291,22 @@ class MotionPlanner:
                 end_region = Region(end_pose)
                 start_joints = Configuration(get_joint_positions(self.world.robot, self.world.base_joints), get_joint_positions(self.world.robot, self.world.arm_joints))
                 path = self.rrt(self.bounds, self.world, start_joints, self.radius, end_region)
-                plan += path
+                # plan += path
                 self.item_on_hand.append(act.parameters[0])
                 for conf in path:
                     wait_for_duration(1 / len(path))
                     set_joint_positions(self.world.robot, self.ik_joints, conf.arm_joints)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf.arm_joints)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
+                    plan['drawer'].append(None)
                 pose = get_link_pose(self.world.robot, self.tool_link)
                 for item in self.item_on_hand:
                     body = 4 if item == 'sugar' else 5
                     set_pose(body, pose)
                     self.poses[item] = pose
+                    plan[item][-1] = pose
                 # wait_for_user()
             elif act.name == 'place':
                 pose2d = self.poses[act.parameters[1]][0]
@@ -306,14 +324,26 @@ class MotionPlanner:
                     wait_for_duration(1 / len(path))
                     set_joint_positions(self.world.robot, self.ik_joints, conf.arm_joints)
                     pose = get_link_pose(self.world.robot, self.tool_link)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf.arm_joints)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                     for item in self.item_on_hand:
                         body = 4 if item == 'sugar' else 5
                         set_pose(body, pose)
                         self.poses[item] = pose
+                        plan[item][-1] = pose
                 for item in self.item_on_hand:
                     self.poses[item] = end_pose
                     body = 4 if item == 'sugar' else 5
                     set_pose(body, end_pose)
+                    plan['base'].append(None)
+                    plan['arm'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
+                    plan['drawer'].append(None)
+                    plan[item][-1] = end_pose
                 self.item_on_hand.remove(act.parameters[0])
                 # wait_for_user()
             elif act.name == 'stow': 
@@ -333,14 +363,26 @@ class MotionPlanner:
                     wait_for_duration(1/len(path))
                     set_joint_positions(self.world.robot, self.ik_joints, conf.arm_joints)
                     pose = get_link_pose(self.world.robot, self.tool_link)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf.arm_joints)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                     for item in self.item_on_hand:
                         body = 4 if item == 'sugar' else 5
                         set_pose(body, pose)
                         self.poses[item] = pose
+                        plan[item][-1] = pose
                 for item in self.item_on_hand:
                     self.poses[item] = end_pose
                     body = 4 if item == 'sugar' else 5
                     set_pose(body, end_pose)
+                    plan['base'].append(None)
+                    plan['arm'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
+                    plan['drawer'].append(None)
+                    plan[item][-1] = end_pose
                 self.item_on_hand.remove(act.parameters[0])
                 # wait_for_user()
                 # navigate to drawer
@@ -353,6 +395,11 @@ class MotionPlanner:
                 for conf in path:
                     wait_for_duration(1/len(path))
                     set_joint_positions(self.world.robot, self.ik_joints, conf.arm_joints)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf.arm_joints)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                 # wait_for_user()
                 # pull
                 start_pose = get_link_pose(self.world.robot, self.tool_link)
@@ -363,6 +410,11 @@ class MotionPlanner:
                     conf = next(closest_inverse_kinematics(self.world.robot, PANDA_INFO, self.tool_link, pose, max_time=0.05), None)
                     set_joint_positions(self.world.robot, self.ik_joints, conf)
                     set_joint_position(self.world.kitchen, joint, get_joint_position(self.world.kitchen, joint) + 0.01)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf)
+                    plan['drawer'].append(get_joint_position(self.world.kitchen, joint))
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                 self.drawer_front_surface = compute_surface_aabb(self.world, 'indigo_drawer_top')
                 # wait_for_user()
                 # pick
@@ -370,15 +422,21 @@ class MotionPlanner:
                 end_region = Region(end_pose)
                 start_joints = Configuration(get_joint_positions(self.world.robot, self.world.base_joints), get_joint_positions(self.world.robot, self.world.arm_joints))
                 path = self.rrt(self.bounds, self.world, start_joints, self.radius, end_region)
-                plan += path
+                # plan += path
                 self.item_on_hand.append(act.parameters[0])
                 for conf in path:
                     wait_for_duration(1/len(path))
                     set_joint_positions(self.world.robot, self.ik_joints, conf.arm_joints)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf.arm_joints)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                 pose = get_link_pose(self.world.robot, self.tool_link)
                 for item in self.item_on_hand:
                     body = 4 if item == 'sugar' else 5
                     set_pose(body, pose)
+                    plan[item][-1] = pose
                 # wait_for_user()
                 # TODO: place inside
                 # TODO: determine end_region
@@ -394,14 +452,26 @@ class MotionPlanner:
                     wait_for_duration(1/len(path))
                     set_joint_positions(self.world.robot, self.ik_joints, conf.arm_joints)
                     pose = get_link_pose(self.world.robot, self.tool_link)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf.arm_joints)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                     for item in self.item_on_hand:
                         body = 4 if item == 'sugar' else 5
                         set_pose(body, pose)
                         self.poses[item] = pose
+                        plan[item][-1] = pose
                 for item in self.item_on_hand:
                     self.poses[item] = end_pose
                     body = 4 if item == 'sugar' else 5
                     set_pose(body, end_pose)
+                    plan['base'].append(None)
+                    plan['arm'].append(None)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
+                    plan[item][-1] = end_pose
                 self.item_on_hand.remove(act.parameters[0])
                 # wait_for_user()
                 # navigate to drawer
@@ -414,6 +484,11 @@ class MotionPlanner:
                 for conf in path:
                     wait_for_duration(1/len(path))
                     set_joint_positions(self.world.robot, self.ik_joints, conf.arm_joints)
+                    plan['base'].append(None)
+                    plan['arm'].append(conf.arm_joints)
+                    plan['drawer'].append(None)
+                    plan['sugar'].append(None)
+                    plan['spam'].append(None)
                 # wait_for_user()
                 # push
                 start_pose = get_link_pose(self.world.robot, self.tool_link)
@@ -430,6 +505,34 @@ class MotionPlanner:
                               0)
                     pose3d = pose2d_on_surface(self.world, name, 'indigo_drawer_top', pose2d=pose2d)
                     self.poses['spam'] = pose3d
+                    plan['base'].append(None)
+                    plan['arm'].append(conf)
+                    plan['drawer'].append(get_joint_position(self.world.kitchen, joint))
+                    plan['sugar'].append(None)
+                    plan['spam'].append(pose3d)
             else:
                 raise NotImplementedError
             
+        np.save('plan.npy', plan)
+        
+    def run_plan(self, filepath='plan.npy'):
+        plan = np.load(filepath, allow_pickle=True).item()
+        steps = len(plan['base'])
+        for step in range(steps):
+            base_motion = plan['base'][step]
+            arm_motion = plan['arm'][step]
+            sugar_motion = plan['sugar'][step]
+            spam_motion = plan['spam'][step]
+            drawer_motion = plan['drawer'][step]
+            if base_motion is not None:
+                set_joint_positions(self.world.robot, self.world.base_joints, base_motion)
+            if arm_motion is not None:
+                wait_for_duration(0.1)
+                set_joint_positions(self.world.robot, self.world.arm_joints, arm_motion)
+            if sugar_motion is not None:
+                set_pose(4, sugar_motion)
+            if spam_motion is not None:
+                set_pose(5, spam_motion)
+            if drawer_motion is not None:
+                set_joint_position(self.world.kitchen, get_joint(self.world.kitchen, 'indigo_drawer_top_joint'), drawer_motion)
+            wait_for_duration(0.05)
