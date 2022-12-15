@@ -44,7 +44,7 @@ To integrate the activity plan into the motion plan, we do it separately. We hav
 * `place` is the inverse action of `pick`, so we just do it in the same way with inversed start and end_region.
 * `stow` is the most complex action. Because in section 1 we do not define the drawer object and open/close action for it separately, we need to do all of them in this part. We divide the stow into a set of the previous 3 actions. We first `place` the item back to the top of the drawer, then `navigate` to the handle of the drawer. Next, we pull the drawer out by moving a straight line along the x-axis. Later, we `pick` up the item again and `place` it into the drawer. Finally, we `navigate` to the handle and push it back by moving the reversed straight line along the x-axis. 
 
-The video is uploaded in the repo called ***simulation.mp4***. Because by our assumption, the collision shapes of items are removed, you can see that sometimes the item will be half inside the table. This could be solved if we add it back. But we cannot deal with the collision between the end-effector and the item when we need to pick them up and can carry them. So in the final version, we choose to keep the assumption.
+The video is uploaded in the repo called ***simulation.mp4***, you can also watch through the link https://drive.google.com/file/d/120u2rysyq2vl70NAdYhemvlkZ6z-42EC/view?usp=share_link. Because by our assumption, the collision shapes of items are removed, you can see that sometimes the item will be half inside the table. This could be solved if we add it back. But we cannot deal with the collision between the end-effector and the item when we need to pick them up and can carry them. So in the final version, we choose to keep the assumption.
 
 ## section 3
 
@@ -68,4 +68,4 @@ Here each $x$ is the joints configuration for the arm which is a 7-d vector. In 
 
 This optimization method works well. In the video, it is easy to see that the rrt algorithm provides a trajectory of a polygonal line while the optimization method generates a much more smooth and more efficient trajectory of arc. 
 
-The sample-based trajectory is saved in ***trajectory_rrt.npy*** and is visualized in ***rrt.mp4***. The optimized trajectory is saved in ***trajectory_opt.npy*** and is visualized in ***opt.mp4***.
+The sample-based trajectory is saved in ***trajectory_rrt.npy*** and is visualized in ***rrt.mp4*** or through link https://drive.google.com/file/d/1lPrCa7ItJmV_XY5Ur7s2KlsB4ovaw4jv/view?usp=share_link. The optimized trajectory is saved in ***trajectory_opt.npy*** and is visualized in ***opt.mp4*** or through link https://drive.google.com/file/d/1xyRxfPtCZd0CDbBrFtVTzi9QfJrbN_ct/view?usp=share_link.
